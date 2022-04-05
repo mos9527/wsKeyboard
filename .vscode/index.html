@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>le touch has arrived</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+        }
+
+        .area {
+            user-select: none;          
+            font-size: 40vh;
+            text-align: center;
+            color: white;
+            background-color: black;
+            flex: 1;
+            height: 100vhzx;
+        }
+
+        .area:nth-child(2n) {
+            filter: invert(100);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="area" id="z"></div>
+    <div class="area" id="x"></div>
+    <script>
+        var wsURI = window.location.protocol.replace('http', 'ws') + '//' + window.location.hostname + (window.location.port ? ':' + window.location.port : '') + window.location.pathname + 'ws'
+        var ws = new WebSocket(wsURI)
+        ws.onmessage = () => ws.send('pong ---')
+    </script>
+    <script>
+        const VIBRATION_RATE = 0; // ms    
+        const VIBRATION_MIN_WINDOW = 100; //ms
+        var tVibrate = 0;
+        var totalInputs = 0;
+        
+        function begin_vibration_poll () {        
+            return;    
+            if (totalInputs && tVibrate == 0) { navigator.vibrate(Number.MAX_VALUE); tVibrate = Date.now() }
+            else if (totalInputs <= 0 && Date.now() - tVibrate >= VIBRATION_MIN_WINDOW && tVibrate != 0) { navigator.vibrate(0); tVibrate = 0; }
+            setTimeout(begin_vibration_poll,VIBRATION_RATE)
+        }
+
+        function start_handler(ev) {                 
+            var el = ev.target
+            el.innerHTML = `${el.id}</br>${++el.clicks}`            
+            ws.send(`↓ ${ev.target.id}`)
+            totalInputs++
+        }
+        function end_handler(ev) {
+            ws.send(`↑ ${ev.target.id}`)
+            totalInputs--
+        }
+        function set_handlers(id) {
+            // Install event handlers for the given element
+            var el = document.getElementById(id);
+            el.ontouchstart = start_handler;
+            // Use same handler for touchcancel and touchend
+            el.ontouchcancel = end_handler;
+            el.ontouchend = end_handler;
+            el.onclick = () => {document.body.requestFullscreen()} 
+            el.innerHTML = el.id           
+            if (!!!el.clicks) el.clicks = 0            
+        }
+        for (var el of document.getElementsByClassName('area')){
+            set_handlers(el.id)
+        }        
+        begin_vibration_poll()
+    </script>
+</body>
+
+</html>

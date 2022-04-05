@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>le touch has arrived</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            font-family: 'Courier New', Courier, monospace;
+            text-transform: uppercase;
+        }
+
+        .active {
+            transform: scale(1.2, 1.2);
+        }
+
+        .area {
+            user-select: none;
+            font-size: 40vh;
+            text-align: center;
+            color: white;
+            background-color: black;
+            flex: 1;
+            height: 100vh;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+
+        .area:nth-child(2n) {
+            filter: invert(100);
+        }
+
+        key,
+        speed {
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="area" id="0"></div>
+    <div class="area" id="1"></div>
+    <script>
+        try {
+            var wsURI = 'ws://' + window.location.hostname + ':3300/ws'
+            var ws = new WebSocket(wsURI)
+            ws.onmessage = event => {
+                data = JSON.parse(event.data)
+                for (var el of document.getElementsByClassName('area')) {
+                    set_handlers(el.id, data.keymaps[el.id])
+                }
+            }
+            ws.onclose = () => setTimeout(() => document.location.reload(), 1000);    
+        } catch (error) {
+            document.body.innerHTML = error
+        }
+        
+    </script>
+    <script>
+        class DynamicSpeedometer {
+            constructor(tick, callback) {
+                this.length = 1000 / tick;
+                this.buffer = Array();
+                this.instant = 0;
+                this.value = 0;
+                this.lastValue = -1;
+                this.timer = setInterval(() => {
+                    this.value += this.instant;
+                    if (this.buffer.length >= this.length)
+                        this.value -= this.buffer.shift();
+                    this.buffer.push(this.instant);
+                    this.instant = 0;
+                    if (this.value != this.lastValue) callback(this.value)
+                    this.lastValue = this.value
+                }, tick)
+            }
+            addInstant(i) {
+                this.instant += i
+            }
+        }
+        var totalInputs = 0;
+        function start_handler(ev) {
+            document.body.requestFullscreen()
+            var el = ev.target
+            el.classList.add('active')
+            ws.send(new Uint8Array([0xFF, parseInt(el.id)]))
+            el.speed.addInstant(1)
+        }
+        function end_handler(ev) {
+            ev.target.classList.remove('active')
+            ws.send(new Uint8Array([0x00, parseInt(ev.target.id)]))
+        }
+        function set_handlers(id, name) {
+            var el = document.getElementById(id);
+            el.ontouchstart = start_handler;
+            el.ontouchcancel = end_handler;
+            el.ontouchend = end_handler;
+            // el.onmousedown = start_handler;
+            // el.onmouseup = end_handler;
+            // el.onmouseleave = end_handler;
+            el.name = name
+            el.speed = new DynamicSpeedometer(100, (value) => el.innerHTML = `<key>${el.name}</key></br><speed>${value}</speed>`)
+        }                        
+    </script>
+</body>
+
+</html>
